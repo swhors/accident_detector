@@ -9,6 +9,7 @@ from model.svm import train_svm
 from model.xgboost import train_xgboost
 from model.ai_safety_system import AISafetySystem
 from model.stacking import Stacking
+from sklearn.preprocessing import StandardScaler
 
 
 df_final = gen_data(None)
