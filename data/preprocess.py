@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 
-def pre_process():
+def pre_process(df_final):
     # 데이터 인코딩 (날짜 제외, 범주형 변수 변환)
     df_ml = pd.get_dummies(df_final.drop(['date', 'site_name'], axis=1))
     X = df_ml.drop('accident_type', axis=1) if 'accident_type' in df_ml else df_ml
