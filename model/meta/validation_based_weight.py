@@ -13,12 +13,31 @@ from sklearn.metrics import f1_score
 
 
 class ValidationBasedWeight():
+    """성능 기반 자동 가중치 클래스
+    - 각 모델의 검증 데이터 성적을 기반으로 가중치를 계산하여,
+      최종 위험도 계산에 활용합니다.
+    """
     def __init__(self, model_xgb, model_rf, model_svm, model_lstm):
+        """초기화 및 모델 탑재
+        :param model_xgb: 학습된 XGBoost 모델
+        :param model_rf: 학습된 랜덤 포레스트 모델
+        :param model_svm: 학습된 SVM 모델
+        :param model_lstm: 학습된 LSTM 모델
+        """
         super().__init__(model_xgb, model_rf, model_svm, model_lstm)
         self._weight = None
         self._total_score = None
 
     def train(self, X_val, X_val_scaled, X_val_lstm, y_val, verbose=0):
+        """
+        메타 모델(최종 결정권자) 학습
+        :param X_val: 검증용 원본 데이터 (스케일링 전)
+        :param X_val_scaled: 검증용 스케일링된 데이터 (SVM용)
+        :param X_val_lstm: 검증용 LSTM 입력 데이터 (3차원)
+        :param y_val: 검증용 타겟 레이블
+        :param verbose: 학습 과정 출력 여부 (0: 출력 안함, 1: 출력)
+        :return: 학습된 메타 모델
+        """
         # 각 모델의 검증 데이터 성적(F1-score) 측정
         scores = {
             'XGB': f1_score(y_val, self._model_xgb.predict(X_val)),
@@ -38,5 +57,9 @@ class ValidationBasedWeight():
 
     # 3. 최종 위험도 계산 함수
     def manual_weighted_risk(self, probs):
+        """최종 위험도 계산
+        :param probs: 각 모델의 예측 확률값이 담긴 딕셔리 (예: {'XGB': 0.8, 'RF': 0.7, ...})
+        :return: 최종 위험도 점수 (0~1 사이)
+        """
         # probs = {'XGB': 0.8, 'RF': 0.7, ...}
         return sum(probs[m] * self._weights[m] for m in self._weights)

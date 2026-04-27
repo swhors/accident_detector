@@ -1,43 +1,58 @@
 import numpy as np
 import pandas as pd
+from model.meta.weight import Weight
 
-class AISafetySystem:
+
+class AccidentDetector:
     def __init__(self, base_models, meta_model, scaler):
         """
-        base_models: {'XGB': ..., 'RF': ..., 'SVM': ..., 'LSTM': ...}
-        meta_model: 최종 가중치 결정용 Logistic Regression 모델
-        scaler: 데이터 표준화 도구
+        :param base_models: {'XGB': ..., 'RF': ..., 'SVM': ..., 'LSTM': ...}
+        :param meta_model: 최종 가중치 결정용 Logistic Regression 모델
+        :param scaler: 데이터 표준화 도구
         """
         self._models = base_models
-        self._meta_model = meta_model
+        self._meta_model: Weight = meta_model
         self._scaler = scaler
 
     def _process_data(self, input_data):
-        """실시간 입력 데이터를 각 모델 규격에 맞게 변환"""
+        """
+        실시간 입력 데이터를 각 모델 규격에 맞게 변환
+        :param input_data: 단일 행의 DataFrame (현장 상황 데이터)
+        :return: 스케일링된 데이터, LSTM용 3차원 데이터
+        """
         # 기본 스케일링
-        scaled = self.scaler.transform(input_data)
+        scaled = self._scaler.fit_transform(input_data)
         # LSTM용 3차원 변환
         lstm_in = np.reshape(scaled, (scaled.shape[0], 1, scaled.shape[1]))
         return scaled, lstm_in
 
     def predict_integrated_risk(self, input_data):
-        """4개 모델의 결과를 스태킹 모델로 통합하여 최종 위험도 산출"""
+        """
+        4개 모델의 결과를 스태킹 모델로 통합하여 최종 위험도 산출
+        :param input_data: 단일 행의 DataFrame (현장 상황 데이터)
+        :return: 최종 위험도 점수, 모델별 개별 확률값
+        """        
         scaled, lstm_in = self._process_data(input_data)
         
-        # 1. 개별 모델 예측 (확률값)
+        # 개별 모델 예측 (확률값)
         p1 = self._models['XGB'].predict_proba(input_data)[:, 1]
         p2 = self._models['RF'].predict_proba(input_data)[:, 1]
         p3 = self._models['SVM'].predict_proba(scaled)[:, 1]
         p4 = self._models['LSTM'].predict(lstm_in).flatten()
-        
-        # 2. 메타 모델(Stacking)을 통한 최종 결합
+        # 메타 모델(Stacking)을 통한 최종 결합
         meta_features = np.column_stack([p1, p2, p3, p4])
-        final_prob = self._meta_model.predict(meta_features)[:, 1]
+
+        final_prob = self._meta_model.predict(meta_features)
         
         return final_prob, {'XGB': p1, 'RF': p2, 'SVM': p3, 'LSTM': p4}
 
     def generate_action_plan(self, risk_prob, row_data):
-        """위험도와 현장 상황을 매칭하여 구체적인 예방 지침 하달"""
+        """
+        위험도와 현장 상황을 매칭하여 구체적인 예방 지침 하달
+        :param risk_prob: 최종 위험도 점수 (0~1)
+        :param row_data: 현장 상황 데이터 (DataFrame의 단일 행)
+        :return: 대응 방안이 담긴 딕셔너리
+        """
         score = risk_prob * 100
         plan = {"level": "", "color": "", "actions": []}
 
